@@ -76,11 +76,11 @@ HIGH_RISK_PATTERNS = [
 
 # ─── Nodes ────────────────────────────────────────────────────
 
-def classification_node(state: TriageState) -> TriageState:
+async def classification_node(state: TriageState) -> TriageState:
     """Classify the PR as human_first, ai_assisted, ai_slop, trivial, or high_risk."""
     logger.info("Classifying PR", repo=state["repo_full_name"], pr=state["pr_number"])
 
-    result = classify_pr(
+    result = await classify_pr(
         title=state["pr_title"],
         body=state["pr_body"],
         diff_text=state["diff_text"],
@@ -209,10 +209,19 @@ def action_node(state: TriageState) -> TriageState:
 # ─── Helpers ──────────────────────────────────────────────────
 
 def _extract_section(text: str, section_name: str, default: str) -> str:
-    """Extract a section value from structured report text."""
+    """Extract a section value from structured report text.
+
+    Handles markdown bold markers: `**Suggested action:** approve` -> `approve`.
+    """
+    import re
+
     for line in text.split("\n"):
-        if section_name.lower() in line.lower() and ":" in line:
-            return line.split(":", 1)[1].strip()
+        if section_name.lower() not in line.lower() or ":" not in line:
+            continue
+        value = line.split(":", 1)[1].strip()
+        # Strip surrounding ** (markdown bold) and backticks
+        value = re.sub(r"^[\*\s`]+|[\*\s`]+$", "", value)
+        return value
     return default
 
 

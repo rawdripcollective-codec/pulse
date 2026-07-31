@@ -30,14 +30,18 @@ except ImportError as exc:  # pragma: no cover
 logger = structlog.get_logger()
 
 # ─── Language registry ─────────────────────────────────────────
-LANGUAGE_PARSERS = {
-    ".py": Language(tspython.language()),
-    ".ts": Language(tstypescript.language_typescript()),
-    ".tsx": Language(tstypescript.language_tsx()),
-    ".js": Language(tsjavascript.language()),
-    ".jsx": Language(tsjavascript.language()),
-    ".go": Language(tsgo.language()),
-    ".rs": Language(tsrust.language()),
+# We store FACTORIES (not Language instances) because tree-sitter 0.23+
+# `Language` objects carry internal state and should not be shared across
+# multiple `Parser` instances. Each `CodeParser._get_parser` call creates
+# a fresh Language.
+LANGUAGE_FACTORIES = {
+    ".py": tspython.language,
+    ".ts": tstypescript.language_typescript,
+    ".tsx": tstypescript.language_tsx,
+    ".js": tsjavascript.language,
+    ".jsx": tsjavascript.language,
+    ".go": tsgo.language,
+    ".rs": tsrust.language,
 }
 
 EXTENSION_TO_LANG = {
@@ -96,11 +100,21 @@ class CodeParser:
 
     def _get_parser(self, ext: str) -> Parser:
         if ext not in self._parsers:
-            lang = LANGUAGE_PARSERS.get(ext)
-            if lang is None:
+            factory = LANGUAGE_FACTORIES.get(ext)
+            if factory is None:
                 raise ValueError(f"Unsupported file extension: {ext}")
-            parser = Parser()
-            parser.set_language(lang)
+            # Create a fresh Language per Parser — Language objects in
+            # tree-sitter 0.23+ are stateful and shouldn't be shared.
+            lang = Language(factory())
+            try:
+                parser = Parser(lang)
+            except TypeError:
+                # Older tree-sitter (<0.23): Language goes via set_language
+                parser = Parser()
+                if hasattr(parser, "set_language"):
+                    parser.set_language(lang)
+                else:
+                    parser.language = lang
             self._parsers[ext] = parser
         return self._parsers[ext]
 

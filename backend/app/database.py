@@ -9,13 +9,26 @@ from sqlalchemy.orm import DeclarativeBase
 
 from app.config import settings
 
-engine = create_async_engine(
-    settings.database_url,
-    echo=settings.debug,
-    pool_size=20,
-    max_overflow=10,
-    pool_pre_ping=True,
-)
+
+def _build_engine_kwargs() -> dict:
+    """Build engine kwargs that work for both Postgres and SQLite.
+
+    SQLite (used in tests) doesn't support connection-pool settings like
+    `pool_size` / `max_overflow` / `pool_pre_ping`, so we only apply them
+    for non-SQLite dialects.
+    """
+    is_sqlite = settings.database_url.startswith("sqlite")
+    if is_sqlite:
+        return {"echo": settings.debug, "future": True}
+    return {
+        "echo": settings.debug,
+        "pool_size": 20,
+        "max_overflow": 10,
+        "pool_pre_ping": True,
+    }
+
+
+engine = create_async_engine(settings.database_url, **_build_engine_kwargs())
 
 async_session_factory = async_sessionmaker(
     engine,

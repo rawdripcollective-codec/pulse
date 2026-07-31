@@ -65,15 +65,8 @@ async def classify_pr(
     heuristic = heuristic_score(title, body)
     complexity = compute_diff_complexity(diff_text)
 
-    # Fast path: trivial PRs
-    if len(files_changed) <= 1 and complexity < 0.05:
-        return {
-            "classification": "trivial",
-            "confidence": 0.95,
-            "rationale": "Single file change with minimal diff — likely a typo fix or small docs update.",
-        }
-
-    # Fast path: high-risk files
+    # Fast path: high-risk files (BEFORE trivial — a 1-line auth change
+    # is not trivial just because it's small)
     if high_risk_patterns:
         risk_files = [
             f for f in files_changed if any(p in f.lower() for p in high_risk_patterns)
@@ -84,6 +77,14 @@ async def classify_pr(
                 "confidence": 0.90,
                 "rationale": f"Changes touch high-risk files: {', '.join(risk_files[:3])}.",
             }
+
+    # Fast path: trivial PRs
+    if len(files_changed) <= 1 and complexity < 0.05:
+        return {
+            "classification": "trivial",
+            "confidence": 0.95,
+            "rationale": "Single file change with minimal diff — likely a typo fix or small docs update.",
+        }
 
     # LLM classification for ambiguous cases
     try:

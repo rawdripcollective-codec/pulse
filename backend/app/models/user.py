@@ -4,6 +4,7 @@ import uuid
 from datetime import datetime
 
 from sqlalchemy import (
+    JSON,
     Boolean,
     Column,
     DateTime,
@@ -17,6 +18,9 @@ from sqlalchemy.dialects.postgresql import JSONB, UUID
 from sqlalchemy.orm import relationship
 
 from app.database import Base
+
+# JSONB on Postgres, JSON on SQLite/MySQL — portable across dialects
+JSONType = JSON().with_variant(JSONB(), "postgresql")
 
 
 class User(Base):
@@ -69,7 +73,7 @@ class UserSettings(Base):
     preferred_llm_model = Column(String(100), nullable=True)
 
     # Custom high-risk file patterns
-    high_risk_patterns = Column(JSONB, nullable=True)
+    high_risk_patterns = Column(JSONType, nullable=True)
 
     created_at = Column(DateTime(timezone=True), default=datetime.utcnow)
     updated_at = Column(

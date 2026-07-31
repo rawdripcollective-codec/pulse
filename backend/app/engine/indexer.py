@@ -172,10 +172,12 @@ class SemanticIndexer:
                 }
             )
 
-        self.table.add(records)
+        self.table.add(records, mode="append")
 
-        # Create ANN index for fast similarity search
-        if records:
+        # Create ANN index for fast similarity search.
+        # Skip for very small batches — LanceDB's KMeans needs many vectors
+        # to train a single centroid. Below ~256 records, brute force is fine.
+        if records and len(records) >= 256:
             self.table.create_index(
                 metric="cosine",
                 num_partitions=min(256, max(1, len(records) // 100)),

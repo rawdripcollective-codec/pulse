@@ -5,6 +5,7 @@ import uuid
 from datetime import datetime
 
 from sqlalchemy import (
+    JSON,
     Boolean,
     Column,
     DateTime,
@@ -20,6 +21,10 @@ from sqlalchemy.dialects.postgresql import JSONB, UUID
 from sqlalchemy.orm import relationship
 
 from app.database import Base
+
+# JSONB on Postgres, JSON on SQLite/MySQL — used wherever we want structured
+# metadata storage. The .with_variant() call lets the same model work for tests.
+JSONType = JSON().with_variant(JSONB(), "postgresql")
 
 
 class RepoStatus(str, enum.Enum):
@@ -68,7 +73,7 @@ class Repository(Base):
     )
 
     # Graph metadata stored as JSONB
-    graph_summary = Column(JSONB, nullable=True)  # node/edge counts, top modules
+    graph_summary = Column(JSONType, nullable=True)  # node/edge counts, top modules
 
     # Relations
     prs = relationship(
@@ -139,12 +144,12 @@ class TriageReport(Base):
 
     # Blast radius
     blast_radius_score = Column(Float, nullable=True)  # 0.0 - 1.0
-    affected_modules = Column(JSONB, nullable=True)  # [{module, path, risk_level, reason}]
-    affected_callers = Column(JSONB, nullable=True)
+    affected_modules = Column(JSONType, nullable=True)  # [{module, path, risk_level, reason}]
+    affected_callers = Column(JSONType, nullable=True)
 
     # Review findings
-    findings = Column(JSONB, nullable=True)
-    pattern_violations = Column(JSONB, nullable=True)
+    findings = Column(JSONType, nullable=True)
+    pattern_violations = Column(JSONType, nullable=True)
     test_coverage_gap = Column(Float, nullable=True)
 
     # Summary

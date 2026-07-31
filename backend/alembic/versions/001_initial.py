@@ -12,6 +12,11 @@ down_revision = None
 branch_labels = None
 depends_on = None
 
+# JSONB on Postgres, JSON elsewhere. The Alembic migration runs only on
+# Postgres in practice (docker-compose) but we keep it portable for the
+# edge case where someone runs migrations against SQLite for tests.
+JSONType = sa.JSON().with_variant(postgresql.JSONB(), "postgresql")
+
 
 def upgrade() -> None:
     # repositories
@@ -42,7 +47,7 @@ def upgrade() -> None:
             server_default=sa.func.now(),
             onupdate=sa.func.now(),
         ),
-        sa.Column("graph_summary", postgresql.JSONB, nullable=True),
+        sa.Column("graph_summary", JSONType, nullable=True),
     )
 
     # pull_requests
@@ -126,10 +131,10 @@ def upgrade() -> None:
         sa.Column("classification_rationale", sa.Text(), nullable=True),
         sa.Column("classification_confidence", sa.Float(), nullable=False),
         sa.Column("blast_radius_score", sa.Float(), nullable=True),
-        sa.Column("affected_modules", postgresql.JSONB, nullable=True),
-        sa.Column("affected_callers", postgresql.JSONB, nullable=True),
-        sa.Column("findings", postgresql.JSONB, nullable=True),
-        sa.Column("pattern_violations", postgresql.JSONB, nullable=True),
+        sa.Column("affected_modules", JSONType, nullable=True),
+        sa.Column("affected_callers", JSONType, nullable=True),
+        sa.Column("findings", JSONType, nullable=True),
+        sa.Column("pattern_violations", JSONType, nullable=True),
         sa.Column("test_coverage_gap", sa.Float(), nullable=True),
         sa.Column("summary", sa.Text(), nullable=False),
         sa.Column("suggested_action", sa.String(length=100), nullable=True),
@@ -186,7 +191,7 @@ def upgrade() -> None:
         sa.Column("always_require_human_for_high_risk", sa.Boolean(), server_default=sa.true()),
         sa.Column("notify_on_ai_slop", sa.Boolean(), server_default=sa.true()),
         sa.Column("preferred_llm_model", sa.String(length=100), nullable=True),
-        sa.Column("high_risk_patterns", postgresql.JSONB, nullable=True),
+        sa.Column("high_risk_patterns", JSONType, nullable=True),
         sa.Column(
             "created_at", sa.DateTime(timezone=True), server_default=sa.func.now()
         ),
