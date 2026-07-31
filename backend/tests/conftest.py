@@ -15,6 +15,7 @@ Strategy:
 import asyncio
 import os
 import sys
+import threading
 import uuid
 from collections.abc import AsyncIterator
 from datetime import UTC, datetime
@@ -351,3 +352,153 @@ def sample_diff_text() -> str:
         "+        raise ValueError('no user')\n"
         "+    return check_password(user, password)\n"
     )
+
+
+# ─── HTTP client fixture for route tests ──────────────────────
+
+# httpx + asgi-lifespan let us exercise the FastAPI app in-process without
+# binding to a real port. We override the `get_db` dependency so route
+# handlers see the test session, not the production async_session_factory.
+
+import httpx
+from asgi_lifespan import LifespanManager
+from httpx import ASGITransport
+
+
+@pytest_asyncio.fixture
+async def api_client(async_engine, db_session):
+    """An httpx AsyncClient wired to the FastAPI app with the test DB.
+
+    Usage:
+        async def test_something(api_client, sample_repo):
+            resp = await api_client.get("/api/repos")
+            assert resp.status_code == 200
+            data = resp.json()
+            ...
+
+    The fixture:
+    - Imports the FastAPI app (lazy import to avoid pulling in DB at module
+      load time before our env vars are set)
+    - Overrides `get_db` to yield the in-memory test session
+    - Drives the FastAPI lifespan (startup/shutdown)
+    - Returns a configured httpx.AsyncClient
+    - Cleans up the dependency override on teardown
+    """
+    from app.database import get_db
+    from app.main import app
+
+    async def override_get_db():
+        yield db_session
+
+    app.dependency_overrides[get_db] = override_get_db
+    try:
+        async with LifespanManager(app), httpx.AsyncClient(
+            transport=ASGITransport(app=app, raise_app_exceptions=False),
+            base_url="http://testserver",
+        ) as client:
+            yield client
+    finally:
+        app.dependency_overrides.clear()
+
+
+# ─── Postgres guard ───────────────────────────────────────────
+
+def _is_postgres_url(url: str | None) -> bool:
+    """True if the given URL points at Postgres (not SQLite)."""
+    if not url:
+        return False
+    return url.startswith(("postgresql", "postgres"))
+
+
+@pytest.fixture(scope="session")
+def postgres_required():
+    """Skip a test if the session DATABASE_URL is not Postgres.
+
+    Use as a fixture dependency:
+        def test_postgres_specific_thing(postgres_required):
+            ...
+    """
+    if not _is_postgres_url(os.environ.get("DATABASE_URL")):
+        pytest.skip(
+            "Postgres-only test — set DATABASE_URL to a postgres:// URL "
+            "to enable (e.g. via 'make test-pg')"
+        )
+
+
+@pytest.fixture(scope="session")
+def sqlite_required():
+    """Skip a test if the session DATABASE_URL is not SQLite.
+
+    Used for tests that exercise SQLite-specific behavior (e.g. JSON
+    fallback to plain JSON).
+    """
+    url = os.environ.get("DATABASE_URL", "")
+    if not url.startswith("sqlite"):
+        pytest.skip("SQLite-only test")
+
+
+# ─── Embedded Postgres (for `make test-pg` and CI service) ─────
+
+# When the user runs `make test-pg` (or CI starts the postgres service),
+# the DATABASE_URL points at a real Postgres. But for the conftest to
+# work even on a developer machine without Docker, we can boot an embedded
+# Postgres via `pgserver` (a small standalone server bundled with
+# PostgreSQL binaries). This makes the tests fully self-contained.
+
+def _start_embedded_postgres_if_needed() -> None:
+    """Boot an embedded Postgres if DATABASE_URL is unset or empty.
+
+    The embedded server is process-wide (started once for the test session).
+    Tests that need real Postgres should depend on the `postgres_url`
+    fixture, which sets DATABASE_URL to the embedded server's URI.
+    """
+    global _embedded_pg_server
+    if _embedded_pg_server is not None:
+        return
+    if os.environ.get("DATABASE_URL", "").startswith(("postgresql", "postgres")):
+        return  # already configured externally
+    try:
+        import tempfile
+
+        import pgserver
+    except ImportError:
+        return  # pgserver not installed; tests will skip
+
+    with _embedded_pg_lock:
+        if _embedded_pg_server is not None:
+            return
+        pgdata = tempfile.mkdtemp(prefix="pulse-pg-")
+        server = pgserver.get_server(pgdata)
+        server.cleanup()
+        server.ensure_pgdata_inited()
+        server.ensure_postgres_running()
+        uri = server.get_uri()
+        # Convert to asyncpg URL
+        asyncpg_uri = uri.replace("postgresql://", "postgresql+asyncpg://", 1)
+        os.environ["DATABASE_URL"] = asyncpg_uri
+        os.environ["DATABASE_URL_SYNC"] = uri
+        _embedded_pg_server = server
+        print(f"\n[pulse-tests] Started embedded Postgres at {asyncpg_uri}")
+
+
+_embedded_pg_server = None
+_embedded_pg_lock = threading.Lock()
+
+
+@pytest.fixture(scope="session")
+def postgres_url():
+    """Get a Postgres URL, starting an embedded server if needed.
+
+    Use as a dependency on any test that requires real Postgres:
+
+        def test_jsonb_query(postgres_url):
+            # ...
+    """
+    _start_embedded_postgres_if_needed()
+    url = os.environ.get("DATABASE_URL", "")
+    if not url.startswith(("postgresql", "postgres")):
+        pytest.skip(
+            "Postgres-only test — set DATABASE_URL=postgresql+asyncpg://... "
+            "or run `make test-pg` to start an embedded server."
+        )
+    return url

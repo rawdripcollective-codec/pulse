@@ -1,6 +1,6 @@
 # Pulse — Makefile for common dev tasks
 
-.PHONY: help install dev up down logs clean test lint build seed
+.PHONY: help install dev up down logs clean test test-pg test-cov lint build seed
 .PHONY: ollama ollama-cloud anthropic openai env-from ollama-doctor
 
 # Default provider target
@@ -15,7 +15,9 @@ help:
 	@echo "  make up         Start full stack via docker compose"
 	@echo "  make down       Stop docker compose stack"
 	@echo "  make logs       Tail docker compose logs"
-	@echo "  make test       Run backend tests"
+	@echo "  make test       Run backend tests (SQLite)"
+	@echo "  make test-pg    Run backend tests against real Postgres"
+	@echo "  make test-cov   Run backend tests with coverage"
 	@echo "  make lint       Lint backend (ruff) and frontend (eslint)"
 	@echo "  make build      Build production frontend bundle"
 	@echo "  make seed       Seed the database with demo data"
@@ -50,6 +52,14 @@ logs:
 
 test:
 	cd backend && pytest
+
+# Run the Postgres-only tests (tests/integration/test_postgres.py).
+# Strategy: prefer an externally-set DATABASE_URL (e.g. from CI service
+# container), otherwise boot an embedded Postgres via the `pgserver` package
+# (the conftest auto-boots it when DATABASE_URL points at sqlite).
+# Requires: pip install pgserver asyncpg (already in dev deps).
+test-pg:
+	cd backend && python -m pytest tests/integration/test_postgres.py -v --no-header
 
 test-cov:
 	cd backend && pytest --cov=app --cov-report=term-missing

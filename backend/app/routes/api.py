@@ -32,7 +32,10 @@ router = APIRouter()
 # ─── GitHub App install callback ──────────────────────────────
 
 @router.post("/github/app/install")
-async def github_app_install_callback(payload: dict) -> dict:
+async def github_app_install_callback(
+    payload: dict,
+    db: AsyncSession = Depends(get_db),
+) -> dict:
     """Handle the GitHub App installation callback.
 
     GitHub POSTs a JSON body here after the org owner clicks "Install" on
@@ -64,15 +67,19 @@ async def github_app_install_callback(payload: dict) -> dict:
     try:
         # Pre-warm the token cache
         await fetch_installation_token(installation_id)
-        # Persist the owner
+        # Persist the owner using the request's DB session so the
+        # transaction is visible to the rest of the request.
         await upsert_installation_owner(
             installation_id=installation_id,
             account_login=account.get("login", "unknown"),
             account_id=account.get("id", 0),
             account_type=account.get("type", "User"),
+            session=db,
         )
+        await db.commit()
     except Exception as exc:
         logger.error("App install callback failed", error=str(exc))
+        await db.rollback()
         raise HTTPException(
             status_code=500,
             detail=f"Install callback failed: {exc}",

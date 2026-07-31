@@ -247,6 +247,7 @@ async def upsert_installation_owner(
     account_login: str,
     account_id: int,
     account_type: str,  # "User" or "Organization"
+    session=None,  # optional: inject a session (e.g. for tests)
 ) -> User:
     """Persist a User record for the account that installed the App.
 
@@ -257,30 +258,43 @@ async def upsert_installation_owner(
 
     For type="User": stores the user as a real account.
     For type="Organization": stores the org as a pseudo-user (login = org name).
-    """
-    async with async_session_factory() as session:
-        result = await session.execute(
-            select(User).where(User.github_id == account_id)
-        )
-        user = result.scalar_one_or_none()
-        if user is None:
-            user = User(
-                github_id=account_id,
-                github_login=account_login,
-                is_active=True,
-            )
-            session.add(user)
-            await session.flush()
-            # Default settings row
-            existing_settings = await session.execute(
-                select(UserSettings).where(UserSettings.user_id == user.id)
-            )
-            if existing_settings.scalar_one_or_none() is None:
-                session.add(UserSettings(user_id=user.id))
-        else:
-            user.github_login = account_login
-            user.is_active = True
 
-        await session.commit()
-        await session.refresh(user)
-        return user
+    If `session` is provided, use it (and don't commit — let the caller
+    decide). Otherwise create a new session and commit at the end.
+    """
+    if session is not None:
+        return await _do_upsert(session, installation_id, account_login, account_id)
+
+    async with async_session_factory() as new_session:
+        result = await _do_upsert(
+            new_session, installation_id, account_login, account_id
+        )
+        await new_session.commit()
+        await session.refresh(result)
+        return result
+
+
+async def _do_upsert(session, installation_id, account_login, account_id) -> User:
+    result = await session.execute(
+        select(User).where(User.github_id == account_id)
+    )
+    user = result.scalar_one_or_none()
+    if user is None:
+        user = User(
+            github_id=account_id,
+            github_login=account_login,
+            is_active=True,
+        )
+        session.add(user)
+        await session.flush()
+        # Default settings row
+        existing_settings = await session.execute(
+            select(UserSettings).where(UserSettings.user_id == user.id)
+        )
+        if existing_settings.scalar_one_or_none() is None:
+            session.add(UserSettings(user_id=user.id))
+    else:
+        user.github_login = account_login
+        user.is_active = True
+
+    return user

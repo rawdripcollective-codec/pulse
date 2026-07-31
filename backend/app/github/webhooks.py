@@ -55,9 +55,11 @@ async def handle_pull_request_event(event: str, payload: dict) -> None:
       - `pull_request` (opened, synchronize, reopened, edited)
       - `pull_request_review` (submitted, edited)
     """
+    # NOTE: 'event' is reserved by structlog as the message key, so we use
+    # 'github_event' here to avoid a duplicate-keyword TypeError.
     logger.info(
         "Received GitHub webhook",
-        event=event,
+        github_event=event,
         action=payload.get("action"),
     )
 
