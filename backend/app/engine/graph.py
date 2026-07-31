@@ -137,7 +137,7 @@ class PropertyGraph:
             "node_count": self.node_count(),
             "edge_count": self.edge_count(),
             "top_modules": self._top_modules(10),
-            "high_centrality_nodes": self._high_centrality_nodes(20),
+            "high_centrality_nodes": self.high_centrality_nodes(20),
         }
 
     def _top_modules(self, n: int) -> list[dict]:
@@ -151,8 +151,12 @@ class PropertyGraph:
             reverse=True,
         )[:n]
 
-    def _high_centrality_nodes(self, n: int) -> list[dict]:
-        """Nodes with the highest number of incoming CALLS edges (most important code)."""
+    def high_centrality_nodes(self, n: int = 20) -> list[dict]:
+        """Public: nodes with the highest number of incoming CALLS edges (most important code).
+
+        Returns a list of dicts with keys: node_id, name, file_path, incoming_calls.
+        Sorted by incoming_calls descending.
+        """
         in_degree: dict[str, int] = defaultdict(int)
         for edge in self.edges:
             if edge.relation == "CALLS":
@@ -164,6 +168,28 @@ class PropertyGraph:
                 "name": self.nodes[node_id].name if node_id in self.nodes else "unknown",
                 "file_path": self.nodes[node_id].file_path if node_id in self.nodes else "",
                 "incoming_calls": count,
+            }
+            for node_id, count in top
+        ]
+
+    def top_callers(self, n: int = 20) -> list[dict]:
+        """Public: nodes that make the most outgoing CALLS edges (most 'call-heavy' code).
+
+        Useful for finding orchestration code, fan-out points, and entry points
+        that touch many subsystems. Mirrors `high_centrality_nodes` but for
+        outgoing call volume.
+        """
+        out_degree: dict[str, int] = defaultdict(int)
+        for edge in self.edges:
+            if edge.relation == "CALLS":
+                out_degree[edge.source] += 1
+        top = sorted(out_degree.items(), key=lambda x: x[1], reverse=True)[:n]
+        return [
+            {
+                "node_id": node_id,
+                "name": self.nodes[node_id].name if node_id in self.nodes else "unknown",
+                "file_path": self.nodes[node_id].file_path if node_id in self.nodes else "",
+                "outgoing_calls": count,
             }
             for node_id, count in top
         ]

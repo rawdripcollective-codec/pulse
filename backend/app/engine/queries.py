@@ -72,7 +72,7 @@ def get_high_risk_files(repo_full_name: str, top_n: int = 10) -> list[dict]:
     indexer = _indexers.get(repo_full_name)
     if indexer is None:
         return []
-    return indexer.graph._high_centrality_nodes(top_n)
+    return indexer.graph.high_centrality_nodes(top_n)
 
 
 def invalidate_indexer(repo_full_name: str) -> None:
