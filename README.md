@@ -243,6 +243,39 @@ openssl rand -hex 32
 ```
 Put the output in `GITHUB_WEBHOOK_SECRET`.
 
+### Optional: GitHub App (org-wide installation)
+
+The OAuth flow above is per-user. For **org-wide** Pulse installations, use a
+[GitHub App](https://docs.github.com/en/apps) instead — it's the recommended
+approach for open-source maintainers and teams.
+
+**When to use an App:**
+- You're running Pulse for an org with many repos and one install
+- You want fine-grained, scope-limited permissions (better than OAuth)
+- You don't want every maintainer to go through OAuth
+
+**Setup:**
+
+1. Create a GitHub App at **https://github.com/settings/apps/new**
+   - **Homepage URL:** `http://localhost:5173`
+   - **Callback URL:** `http://localhost:5173/github/app/callback`
+   - **Webhook URL:** `https://<your-public-host>/api/webhook/github` (or use a tunnel for dev)
+   - **Repository permissions:**
+     - `Contents`: Read
+     - `Issues`: Read and Write
+     - `Pull requests`: Read and Write
+     - `Metadata`: Read (auto-selected)
+
+2. On the App's general settings page:
+   - Note the **App ID** → put in `GITHUB_APP_ID`
+   - Click **Generate a private key** → download the `.pem` → paste contents into `GITHUB_APP_PRIVATE_KEY` (include the `-----BEGIN/END-----` markers, use literal `\n` for newlines in `.env`)
+
+3. Click **Install App** in the sidebar → install on your org/account
+
+4. GitHub will POST to your install callback (`/api/github/app/install`) — Pulse handles this automatically. The installation token is cached in memory and refreshed 10 minutes before expiry.
+
+See [`envs/github-app.env.example`](envs/github-app.env.example) for a complete env template.
+
 ---
 
 ## Quickstart (Docker Compose)

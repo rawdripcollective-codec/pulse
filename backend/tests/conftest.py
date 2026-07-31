@@ -16,10 +16,10 @@ import asyncio
 import os
 import sys
 import uuid
-from datetime import datetime, timezone
+from collections.abc import AsyncIterator
+from datetime import UTC, datetime
 from pathlib import Path
-from typing import Any, AsyncIterator
-from unittest.mock import AsyncMock, MagicMock, patch
+from unittest.mock import MagicMock
 
 import pytest
 import pytest_asyncio
@@ -57,10 +57,10 @@ def event_loop():
 @pytest_asyncio.fixture
 async def async_engine():
     """A fresh in-memory SQLite engine per test, with all tables created."""
-    from app.database import Base
     # Import models so they register on Base.metadata
     import app.models.repo  # noqa: F401
     import app.models.user  # noqa: F401
+    from app.database import Base
 
     engine = create_async_engine(
         "sqlite+aiosqlite:///:memory:",
@@ -101,7 +101,7 @@ async def sample_repo(db_session: AsyncSession):
         language="python",
         stars=42,
         status=RepoStatus.READY,
-        indexed_at=datetime.now(timezone.utc),
+        indexed_at=datetime.now(UTC),
     )
     db_session.add(repo)
     await db_session.flush()
@@ -132,8 +132,8 @@ async def sample_pr(db_session: AsyncSession, sample_repo):
         files_changed=2,
         additions=50,
         deletions=10,
-        created_at=datetime.now(timezone.utc),
-        updated_at=datetime.now(timezone.utc),
+        created_at=datetime.now(UTC),
+        updated_at=datetime.now(UTC),
         classification=PRClassification.HUMAN_FIRST,
         classification_confidence=0.91,
         triage_status=TriageStatus.AWAITING_APPROVAL,
@@ -185,8 +185,8 @@ class FakeGitHubClient:
         pr.changed_files = 2
         pr.additions = 50
         pr.deletions = 10
-        pr.created_at = datetime.now(timezone.utc)
-        pr.updated_at = datetime.now(timezone.utc)
+        pr.created_at = datetime.now(UTC)
+        pr.updated_at = datetime.now(UTC)
         pr.diff_url = "https://github.com/acme/widget/pull/7.diff"
         return pr
 

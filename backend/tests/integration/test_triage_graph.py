@@ -11,7 +11,7 @@ It verifies the end-to-end flow:
 """
 
 import json
-from unittest.mock import AsyncMock, MagicMock, patch
+from unittest.mock import MagicMock, patch
 
 import pytest
 
@@ -19,12 +19,8 @@ from app.agents.triage import TriageState, build_triage_graph, get_triage_graph
 from app.engine.queries import _indexers
 from app.models.repo import (
     PRClassification,
-    RepoStatus,
-    Repository,
     TriageStatus,
 )
-from datetime import datetime, timezone
-import uuid
 
 
 def make_acompletion_mock(content: str):
@@ -59,8 +55,6 @@ class TestTriageGraphEndToEnd:
     async def test_runs_through_classify_to_report(self, tmp_path, monkeypatch):
         # 1) Set up an in-memory indexer with a tiny repo
         from app.engine.indexer import SemanticIndexer
-        from app.engine.parser import CodeParser
-        from app.engine.graph import PropertyGraph
 
         # Create a small Python file to index
         repo_dir = tmp_path / "acme_widget"
@@ -281,15 +275,18 @@ class TestTriageServiceApproveFlow:
         )
         db_session.add(report)
         await db_session.flush()
+        original_id = report.id
 
         with patch("app.services.triage_service.GitHubClient", return_value=fake_github):
             service = TriageService(db_session)
-            await service.approve_report(report.id, approved_by="alice", notes="LGTM")
+            await service.approve_report(original_id, approved_by="alice", notes="LGTM")
 
-        await db_session.refresh(report)
-        assert report.approved is True
-        assert report.approved_by == "alice"
-        assert report.moderation_notes == "LGTM"
+        # Re-fetch the report from the session to see committed changes
+        db_session.expire_all()
+        refreshed = await db_session.get(TriageReport, original_id)
+        assert refreshed.approved is True
+        assert refreshed.approved_by == "alice"
+        assert refreshed.moderation_notes == "LGTM"
         # The fake GitHub client recorded a comment post
         assert len(fake_github.commented) == 1
         # PR status updated
@@ -315,16 +312,18 @@ class TestTriageServiceApproveFlow:
         )
         db_session.add(report)
         await db_session.flush()
+        original_id = report.id
 
         with patch("app.services.triage_service.GitHubClient", return_value=fake_github):
             service = TriageService(db_session)
             await service.reject_report(
-                report.id, rejected_by="bob", notes="Not worth merging"
+                original_id, rejected_by="bob", notes="Not worth merging"
             )
 
-        await db_session.refresh(report)
-        assert report.approved is False
-        assert report.approved_by == "bob"
+        db_session.expire_all()
+        refreshed = await db_session.get(TriageReport, original_id)
+        assert refreshed.approved is False
+        assert refreshed.approved_by == "bob"
         # No comment was posted
         assert len(fake_github.commented) == 0
         # PR status = rejected

@@ -3,14 +3,13 @@
 from uuid import UUID
 
 import structlog
-from fastapi import APIRouter, Depends, HTTPException, Request, status
+from fastapi import APIRouter, Depends, HTTPException, Request
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.database import get_db
 from app.github.webhooks import handle_pull_request_event, verify_webhook_signature
 from app.models.repo import (
-    PRClassification,
     PullRequest,
     Repository,
     TriageReport,
@@ -28,6 +27,83 @@ from app.services.triage_service import TriageService
 
 logger = structlog.get_logger()
 router = APIRouter()
+
+
+# ─── GitHub App install callback ──────────────────────────────
+
+@router.post("/github/app/install")
+async def github_app_install_callback(payload: dict) -> dict:
+    """Handle the GitHub App installation callback.
+
+    GitHub POSTs a JSON body here after the org owner clicks "Install" on
+    the App install page. The body contains `installation.id` and the
+    `account` that installed it. We persist a User record (audit anchor)
+    and pre-warm the installation token cache.
+
+    Body shape (relevant fields):
+        {
+          "installation": {"id": 12345, "account": {"id": ..., "login": ..., "type": "User"|"Organization"}},
+          "repositories": [...]
+        }
+    """
+    from app.github.app import (
+        fetch_installation_token,
+        upsert_installation_owner,
+    )
+
+    installation = payload.get("installation", {})
+    installation_id = installation.get("id")
+    account = installation.get("account", {})
+
+    if not installation_id or not account:
+        raise HTTPException(
+            status_code=400,
+            detail="Invalid installation callback: missing installation.id or account",
+        )
+
+    try:
+        # Pre-warm the token cache
+        await fetch_installation_token(installation_id)
+        # Persist the owner
+        await upsert_installation_owner(
+            installation_id=installation_id,
+            account_login=account.get("login", "unknown"),
+            account_id=account.get("id", 0),
+            account_type=account.get("type", "User"),
+        )
+    except Exception as exc:
+        logger.error("App install callback failed", error=str(exc))
+        raise HTTPException(
+            status_code=500,
+            detail=f"Install callback failed: {exc}",
+        )
+
+    return {
+        "status": "installed",
+        "installation_id": installation_id,
+        "account": account.get("login"),
+    }
+
+
+@router.get("/github/app/installations")
+async def list_app_installations() -> dict:
+    """List all known installations (from the in-memory token cache).
+
+    For a fuller view (with metadata), join against the User table in your
+    frontend. This endpoint exists primarily to verify the App is wired up.
+    """
+    from app.github.app import get_installation_token_cache
+
+    cache = get_installation_token_cache()
+    return {
+        "active_installations": [
+            {
+                "installation_id": tid,
+                "expires_at": tok.expires_at,
+            }
+            for tid, tok in cache._cache.items()
+        ],
+    }
 
 
 # ─── Repositories ─────────────────────────────────────────────

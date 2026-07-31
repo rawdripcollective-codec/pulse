@@ -2,15 +2,16 @@
 
 Supports three auth modes (resolved in order):
 1. User OAuth token (`user_token`) — most common, for maintainer actions
-2. GitHub App installation token (`installation_id`) — for org-wide reads
+2. GitHub App installation token (`installation_id`) — for org-wide reads,
+   with auto-refresh via the in-memory token cache
 3. Anonymous (rate-limited, unauthenticated) — only for public reads
 """
 
-from typing import Optional
+import asyncio
 
 import requests
 import structlog
-from github import Github, GithubIntegration
+from github import Github
 from github.PullRequest import PullRequest as GhPullRequest
 
 from app.config import settings
@@ -23,12 +24,13 @@ class GitHubClient:
 
     def __init__(
         self,
-        installation_id: Optional[int] = None,
-        user_token: Optional[str] = None,
+        installation_id: int | None = None,
+        user_token: str | None = None,
     ):
         self._installation_id = installation_id
         self._user_token = user_token
-        self._client: Optional[Github] = None
+        self._client: Github | None = None
+        self._installation_token: str | None = None
 
     # ─── Client factory ───────────────────────────────────────
 
@@ -40,17 +42,36 @@ class GitHubClient:
         if self._user_token:
             self._client = Github(self._user_token)
         elif self._installation_id and settings.github_app_id:
-            integration = GithubIntegration(
-                settings.github_app_id,
-                settings.github_app_private_key,
-            )
-            token = integration.get_access_token(self._installation_id)
-            self._client = Github(token.token)
+            # Use the new app.py module which caches and refreshes tokens
+            # (the old GithubIntegration flow didn't cache, so every call
+            # minted a fresh token — wasteful at scale).
+            self._client = self._build_app_client(self._installation_id)
         else:
             # Anonymous — rate-limited, public reads only
             self._client = Github()
 
         return self._client
+
+    def _build_app_client(self, installation_id: int) -> Github:
+        """Build a Github client using a cached installation token.
+
+        PyGithub is sync, so we run the async `fetch_installation_token`
+        in a one-shot event loop. For async-native code, prefer
+        `app.fetch_installation_token` directly.
+        """
+        from app.github.app import fetch_installation_token
+
+        try:
+            loop = asyncio.get_event_loop()
+        except RuntimeError:
+            loop = asyncio.new_event_loop()
+            asyncio.set_event_loop(loop)
+
+        token = loop.run_until_complete(
+            fetch_installation_token(installation_id)
+        )
+        self._installation_token = token.token
+        return Github(token.token)
 
     # ─── Repository operations ────────────────────────────────
 
