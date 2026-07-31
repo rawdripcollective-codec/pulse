@@ -7,9 +7,7 @@ The graph pauses after `generate_report` via `interrupt_before=["action"]`
 so that no comment is posted to GitHub without an explicit human approval.
 """
 
-import json
-import time
-from typing import Optional, TypedDict
+from typing import TypedDict
 
 import structlog
 from langgraph.checkpoint.memory import MemorySaver
@@ -17,9 +15,9 @@ from langgraph.graph import END, StateGraph
 from litellm import acompletion
 
 from app.agents.classifier import classify_pr
-from app.agents.prompts import BLAST_RADIUS_PROMPT, REPORT_GENERATION_PROMPT
+from app.agents.prompts import REPORT_GENERATION_PROMPT
 from app.config import settings
-from app.engine.queries import get_blast_radius, get_callers
+from app.engine.queries import get_blast_radius
 from app.github.client import GitHubClient
 
 logger = structlog.get_logger()
@@ -60,7 +58,7 @@ class TriageState(TypedDict):
     moderation_notes: str
 
     # Output
-    error: Optional[str]
+    error: str | None
 
 
 # ─── Constants ────────────────────────────────────────────────
@@ -111,7 +109,7 @@ async def blast_radius_node(state: TriageState) -> TriageState:
             all_callers.add(entry.get("caller", ""))
 
     # Score: how many external files are affected
-    unique_affected_files = len(set(a.get("caller_file", "") for a in all_affected))
+    unique_affected_files = len({a.get("caller_file", "") for a in all_affected})
     total_files_in_repo = max(len(state["files_changed"]), 1)
     state["blast_radius_score"] = min(
         unique_affected_files / max(total_files_in_repo * 5, 1), 1.0

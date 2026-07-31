@@ -87,7 +87,7 @@ class TestDiffComplexity:
 
     def test_ignores_diff_metadata(self):
         # "+++ a/file" and "--- a/file" are diff metadata, not changes
-        diff = "+++ a/file.py\n--- a/file.py\n" + "\n".join(f"+x" for _ in range(10))
+        diff = "+++ a/file.py\n--- a/file.py\n" + "\n".join("+x" for _ in range(10))
         # 10 real changes, not 12
         assert compute_diff_complexity(diff) < 0.05
 

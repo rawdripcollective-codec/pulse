@@ -5,20 +5,19 @@ SemanticIndexer. Triggered when a repo is first connected and on
 re-index requests.
 """
 
+import asyncio
 import shutil
 import tempfile
-import uuid
 from pathlib import Path
 
 import structlog
-from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.config import settings
 from app.engine.indexer import SemanticIndexer
 from app.engine.queries import invalidate_indexer
 from app.github.client import GitHubClient
-from app.models.repo import RepoStatus, Repository
+from app.models.repo import Repository, RepoStatus
 
 logger = structlog.get_logger()
 
@@ -43,7 +42,10 @@ class IndexService:
             if settings.github_app_private_key and settings.github_app_id:
                 # App installation token would go here in production
                 pass
-            subprocess.run(
+            # subprocess.run is blocking — we use it in a thread to avoid
+            # blocking the event loop during the clone.
+            await asyncio.to_thread(
+                subprocess.run,
                 ["git", "clone", "--depth=1", clone_url, str(clone_dir)],
                 check=True,
                 capture_output=True,

@@ -6,7 +6,6 @@ in production with multiple workers, swap to Redis-backed caching.
 """
 
 from pathlib import Path
-from typing import Optional
 
 import structlog
 
@@ -19,8 +18,8 @@ _indexers: dict[str, SemanticIndexer] = {}
 
 
 def get_indexer(
-    repo_full_name: str, repo_path: Optional[str] = None
-) -> Optional[SemanticIndexer]:
+    repo_full_name: str, repo_path: str | None = None
+) -> SemanticIndexer | None:
     """Get or create a SemanticIndexer for a repository."""
     if repo_full_name in _indexers:
         return _indexers[repo_full_name]
@@ -41,7 +40,7 @@ async def semantic_search(
     repo_full_name: str,
     query: str,
     top_k: int = 10,
-    kind_filter: Optional[str] = None,
+    kind_filter: str | None = None,
 ) -> list[dict]:
     """Natural-language semantic search over code entities."""
     indexer = _indexers.get(repo_full_name)

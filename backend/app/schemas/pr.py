@@ -5,11 +5,9 @@ the validation boundary between HTTP and the database.
 """
 
 from datetime import datetime
-from typing import Optional
 from uuid import UUID
 
-from pydantic import BaseModel, Field
-
+from pydantic import BaseModel
 
 # ─── Pull Request Schemas ──────────────────────────────────────
 
@@ -20,12 +18,12 @@ class PRSummary(BaseModel):
     number: int
     title: str
     author: str
-    author_avatar: Optional[str] = None
+    author_avatar: str | None = None
     files_changed: int
     additions: int
     deletions: int
-    classification: Optional[str] = None
-    classification_confidence: Optional[float] = None
+    classification: str | None = None
+    classification_confidence: float | None = None
     triage_status: str
     created_at: datetime
     repo_full_name: str = ""
@@ -37,7 +35,7 @@ class PRSummary(BaseModel):
 class PRDetail(PRSummary):
     """Full PR detail with body, branches, and embedded triage reports."""
 
-    body: Optional[str] = None
+    body: str | None = None
     base_branch: str
     head_branch: str
     state: str
@@ -50,18 +48,18 @@ class TriageReportDetail(BaseModel):
 
     id: UUID
     classification: str
-    classification_rationale: Optional[str] = None
+    classification_rationale: str | None = None
     classification_confidence: float
-    blast_radius_score: Optional[float] = None
-    affected_modules: Optional[list[dict]] = None
+    blast_radius_score: float | None = None
+    affected_modules: list[dict] | None = None
     summary: str
-    suggested_action: Optional[str] = None
-    suggested_reviewer: Optional[str] = None
-    approved: Optional[bool] = None
-    approved_by: Optional[str] = None
-    approved_at: Optional[datetime] = None
+    suggested_action: str | None = None
+    suggested_reviewer: str | None = None
+    approved: bool | None = None
+    approved_by: str | None = None
+    approved_at: datetime | None = None
     posted_to_github: bool = False
-    processing_time_ms: Optional[int] = None
+    processing_time_ms: int | None = None
     created_at: datetime
 
     class Config:
@@ -85,11 +83,11 @@ class RejectReportRequest(BaseModel):
 class RepoSummary(BaseModel):
     id: UUID
     full_name: str
-    description: Optional[str] = None
-    language: Optional[str] = None
+    description: str | None = None
+    language: str | None = None
     stars: int
     status: str
-    indexed_at: Optional[datetime] = None
+    indexed_at: datetime | None = None
     open_prs: int = 0
     pending_triages: int = 0
 

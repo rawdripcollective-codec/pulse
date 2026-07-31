@@ -1,16 +1,14 @@
 """Dashboard-specific endpoints: stats, semantic search, blast radius queries."""
 
-from uuid import UUID
 
 import structlog
-from fastapi import APIRouter, Depends, HTTPException, Query
+from fastapi import APIRouter, Depends, Query
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.database import get_db
 from app.engine.queries import (
     get_blast_radius,
-    get_callers,
     get_high_risk_files,
     semantic_search,
 )

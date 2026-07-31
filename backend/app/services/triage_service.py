@@ -6,14 +6,13 @@ persisting PR and report state to the database.
 
 import time
 import uuid
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 
 import structlog
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.agents.triage import TriageState, get_triage_graph
-from app.engine.queries import get_indexer
+from app.agents.triage import TriageState, build_triage_graph
 from app.github.client import GitHubClient
 from app.models.repo import (
     PRClassification,
@@ -57,7 +56,7 @@ class TriageService:
                 language=gh_repo.language,
                 stars=gh_repo.stargazers_count,
                 status="ready",
-                indexed_at=datetime.now(timezone.utc),
+                indexed_at=datetime.now(UTC),
             )
             self.session.add(repo)
             await self.session.flush()
@@ -139,7 +138,7 @@ class TriageService:
             "error": None,
         }
 
-        graph = get_triage_graph()
+        graph = build_triage_graph()
         config = {"configurable": {"thread_id": str(pr.id)}}
 
         try:
@@ -177,8 +176,10 @@ class TriageService:
                 classification=final_state["classification"],
                 elapsed_ms=int((time.time() - start_time) * 1000),
             )
+            await self.session.commit()
         except Exception as e:
             logger.error("Triage pipeline failed", error=str(e))
+            await self.session.rollback()
             pr.triage_status = TriageStatus.PENDING
 
     # ─── Human approval ───────────────────────────────────────
@@ -189,55 +190,48 @@ class TriageService:
         approved_by: str,
         notes: str = "",
     ) -> None:
-        """Human approves a triage report and posts it to GitHub."""
-        result = await self.session.execute(
-            select(TriageReport).where(TriageReport.id == report_id)
-        )
-        report = result.scalar_one_or_none()
-        if report is None:
-            raise ValueError(f"Report {report_id} not found")
+        """Human approves a triage report and posts it to GitHub.
+
+        Marks the report as approved, posts the comment and (optionally)
+        the suggested labels to GitHub, then updates the PR status.
+
+        The LangGraph state machine is *not* re-invoked here — the report
+        was already generated and persisted during enqueue. Approving just
+        delivers the existing artifact to GitHub.
+        """
+        report, pr, repo = await self._load_report_context(report_id)
 
         report.approved = True
         report.approved_by = approved_by
-        report.approved_at = datetime.now(timezone.utc)
+        report.approved_at = datetime.now(UTC)
         report.moderation_notes = notes
 
-        # Get the PR and repo
-        result = await self.session.execute(
-            select(PullRequest).where(PullRequest.id == report.pull_request_id)
-        )
-        pr = result.scalar_one_or_none()
-        result = await self.session.execute(
-            select(Repository).where(Repository.id == pr.repository_id)
-        )
-        repo = result.scalar_one_or_none()
-
-        # Resume the LangGraph run with approved=True
-        graph = get_triage_graph()
-        config = {"configurable": {"thread_id": str(pr.id)}}
-
-        try:
-            await graph.ainvoke(
-                None,
-                config,
-            )
-        except Exception as e:
-            logger.error("Graph resume failed", error=str(e))
-
-        # Post the comment manually (in case graph resume was a no-op)
         try:
             client = GitHubClient()
             comment_body = self._build_comment_from_report(report, pr)
             client.post_pr_comment(repo.full_name, pr.number, comment_body)
-            if report.suggested_labels if hasattr(report, "suggested_labels") else False:
-                # Pull labels from the report (they live on the report we created)
-                pass
+
+            # Apply suggested labels (extracted from the original triage run;
+            # we stash them on the report's findings array under "suggested_labels")
+            labels = self._extract_suggested_labels(report)
+            if labels:
+                client.add_labels(repo.full_name, pr.number, labels)
+
             report.posted_to_github = True
-            report.posted_at = datetime.now(timezone.utc)
+            report.posted_at = datetime.now(UTC)
             pr.triage_status = TriageStatus.POSTED
-        except Exception as e:
-            logger.error("Failed to post to GitHub", error=str(e))
+            logger.info(
+                "Triage report posted to GitHub",
+                repo=repo.full_name,
+                pr=pr.number,
+                approved_by=approved_by,
+            )
+        except Exception as exc:
+            logger.error("Failed to post to GitHub", error=str(exc))
+            # Mark as approved but not yet posted — operator can retry
             pr.triage_status = TriageStatus.APPROVED
+
+        await self.session.commit()
 
     async def reject_report(
         self,
@@ -246,6 +240,24 @@ class TriageService:
         notes: str = "",
     ) -> None:
         """Human rejects a triage report (do not post to GitHub)."""
+        report, pr, _ = await self._load_report_context(report_id)
+
+        report.approved = False
+        report.approved_by = rejected_by
+        report.approved_at = datetime.now(UTC)
+        report.moderation_notes = notes
+
+        if pr:
+            pr.triage_status = TriageStatus.REJECTED
+
+        await self.session.commit()
+
+    # ─── Helpers ──────────────────────────────────────────────
+
+    async def _load_report_context(
+        self, report_id: uuid.UUID
+    ) -> tuple[TriageReport, PullRequest, Repository]:
+        """Load a report + its PR + repo in a single batched query chain."""
         result = await self.session.execute(
             select(TriageReport).where(TriageReport.id == report_id)
         )
@@ -253,23 +265,43 @@ class TriageService:
         if report is None:
             raise ValueError(f"Report {report_id} not found")
 
-        report.approved = False
-        report.approved_by = rejected_by
-        report.approved_at = datetime.now(timezone.utc)
-        report.moderation_notes = notes
-
         result = await self.session.execute(
             select(PullRequest).where(PullRequest.id == report.pull_request_id)
         )
         pr = result.scalar_one_or_none()
-        if pr:
-            pr.triage_status = TriageStatus.REJECTED
+        if pr is None:
+            raise ValueError(f"PR for report {report_id} not found")
 
-    # ─── Helpers ──────────────────────────────────────────────
+        result = await self.session.execute(
+            select(Repository).where(Repository.id == pr.repository_id)
+        )
+        repo = result.scalar_one_or_none()
+        if repo is None:
+            raise ValueError(f"Repository for PR {pr.id} not found")
+
+        return report, pr, repo
+
+    @staticmethod
+    def _extract_suggested_labels(report: TriageReport) -> list[str]:
+        """Pull labels from the report's findings JSON (where the triage
+        agent stored them) and return a deduplicated list.
+        """
+        if not report.findings:
+            return []
+        # The agent stores labels in findings[].suggested_labels — or
+        # sometimes as a top-level key. We accept both for flexibility.
+        labels: list[str] = []
+        for item in report.findings:
+            if isinstance(item, dict):
+                for key in ("suggested_labels", "labels"):
+                    val = item.get(key)
+                    if isinstance(val, list):
+                        labels.extend(str(v) for v in val if v)
+        # Dedup, preserve order
+        return list(dict.fromkeys(labels))[:5]
 
     def _build_comment_from_report(self, report: TriageReport, pr: PullRequest) -> str:
         """Format a TriageReport row as a GitHub comment body."""
-        labels_md = " ".join(f"`{l}`" for l in (report.affected_modules or [])[:3] if isinstance(l, str))
         return f"""{report.summary}
 
 ---
@@ -279,7 +311,7 @@ class TriageService:
 - **Classification:** `{report.classification.value}` (confidence: {report.classification_confidence:.0%})
 - **Blast Radius Score:** {report.blast_radius_score or 0:.0%}
 - **Suggested Action:** `{report.suggested_action or 'comment'}`
-- **Suggested Reviewer:** {report.suggested_reviewer or 'Not specified'}
+- **Suggested Reviewer:** {report.suggested_reviewer or 'Not specified'}`
 
 > This report was generated by [Pulse](https://github.com/rawdripcollective-codec/pulse).
 </details>

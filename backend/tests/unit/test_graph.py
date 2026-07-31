@@ -1,8 +1,7 @@
 """Unit tests for the property graph."""
 
-import pytest
 
-from app.engine.graph import GraphEdge, GraphNode, PropertyGraph
+from app.engine.graph import PropertyGraph
 from app.engine.parser import CodeEntity, ParsedFile
 
 

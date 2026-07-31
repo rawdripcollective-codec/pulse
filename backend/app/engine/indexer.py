@@ -8,7 +8,6 @@ For each repository, the indexer:
 """
 
 from pathlib import Path
-from typing import Optional
 
 import lancedb
 import pyarrow as pa
@@ -195,7 +194,7 @@ class SemanticIndexer:
         self,
         query: str,
         top_k: int = 10,
-        kind_filter: Optional[str] = None,
+        kind_filter: str | None = None,
     ) -> list[dict]:
         """Natural-language semantic search over code entities."""
         from litellm import embedding

@@ -11,13 +11,13 @@ from sqlalchemy import pool
 from sqlalchemy.engine import Connection
 from sqlalchemy.ext.asyncio import async_engine_from_config
 
+import app.models.repo
+import app.models.user  # noqa: F401
 from alembic import context
 
 # Import the Pulse app to discover all models
 from app.config import settings
 from app.database import Base
-import app.models.repo  # noqa: F401  (registers models on Base)
-import app.models.user  # noqa: F401
 
 config = context.config
 

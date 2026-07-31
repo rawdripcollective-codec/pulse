@@ -1,7 +1,6 @@
 """Triage-specific Pydantic schemas (separate file to keep concerns split)."""
 
 from datetime import datetime
-from typing import Optional
 from uuid import UUID
 
 from pydantic import BaseModel
@@ -24,8 +23,8 @@ class TriageSummary(BaseModel):
     report_id: UUID
     pr_id: UUID
     classification: str
-    blast_radius_score: Optional[float] = None
-    suggested_action: Optional[str] = None
+    blast_radius_score: float | None = None
+    suggested_action: str | None = None
     needs_human: bool
     created_at: datetime
 
@@ -38,4 +37,4 @@ class TriageStats(BaseModel):
     awaiting_approval: int
     in_progress: int
     posted_today: int
-    avg_processing_time_ms: Optional[float] = None
+    avg_processing_time_ms: float | None = None

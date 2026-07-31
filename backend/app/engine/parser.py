@@ -7,19 +7,19 @@ the box; additional grammars can be registered by extending
 `LANGUAGE_PARSERS` and `EXTENSION_TO_LANG`.
 """
 
+import typing
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Optional
 
 import structlog
 from tree_sitter import Language, Node, Parser
 
 try:
-    import tree_sitter_python as tspython
-    import tree_sitter_typescript as tstypescript
-    import tree_sitter_javascript as tsjavascript
     import tree_sitter_go as tsgo
+    import tree_sitter_javascript as tsjavascript
+    import tree_sitter_python as tspython
     import tree_sitter_rust as tsrust
+    import tree_sitter_typescript as tstypescript
 except ImportError as exc:  # pragma: no cover
     raise ImportError(
         "tree-sitter language grammars are required. "
@@ -67,8 +67,8 @@ class CodeEntity:
     start_line: int
     end_line: int
     signature: str
-    docstring: Optional[str] = None
-    parent_name: Optional[str] = None
+    docstring: str | None = None
+    parent_name: str | None = None
     children: list[str] = field(default_factory=list)
     calls: list[str] = field(default_factory=list)
     imports: list[str] = field(default_factory=list)
@@ -93,7 +93,7 @@ class ParsedFile:
 class CodeParser:
     """Parses source code files into lossless semantic trees."""
 
-    SUPPORTED_EXTENSIONS = set(EXTENSION_TO_LANG.keys())
+    SUPPORTED_EXTENSIONS: typing.ClassVar[set[str]] = set(EXTENSION_TO_LANG.keys())
 
     def __init__(self):
         self._parsers: dict[str, Parser] = {}
@@ -154,7 +154,7 @@ class CodeParser:
         source: str,
         file_path: str,
         entities: list[CodeEntity],
-        parent: Optional[str],
+        parent: str | None,
     ) -> None:
         """Recursively walk the AST for entity definitions."""
         kind_map = {
@@ -227,13 +227,13 @@ class CodeParser:
             return params_node.text.decode("utf-8")
         return ""
 
-    def _extract_docstring(self, node: Node) -> Optional[str]:
+    def _extract_docstring(self, node: Node) -> str | None:
         body = node.child_by_field_name("body")
         if body and body.children:
             first = body.children[0]
             if first.type in ("expression_statement", "expression"):
                 text = first.text.decode("utf-8").strip()
-                if text.startswith('"""') or text.startswith("'''"):
+                if text.startswith(('"""', "'''")):
                     return text.strip('"\'').strip()
         return None
 

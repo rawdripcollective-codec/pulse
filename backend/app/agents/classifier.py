@@ -6,7 +6,6 @@ high-risk cases. Ambiguous PRs go through the LLM for a full verdict.
 
 import json
 import re
-from typing import Optional
 
 import structlog
 from litellm import acompletion
@@ -56,7 +55,7 @@ async def classify_pr(
     body: str,
     diff_text: str,
     files_changed: list[str],
-    high_risk_patterns: Optional[list[str]] = None,
+    high_risk_patterns: list[str] | None = None,
 ) -> dict:
     """Classify a PR using heuristics + LLM.
 

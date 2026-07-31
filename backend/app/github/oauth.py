@@ -1,15 +1,14 @@
 """GitHub OAuth flow: authorization URL builder, code exchange, token refresh."""
 
-from datetime import datetime, timedelta, timezone
-from typing import Optional
+from datetime import UTC, datetime, timedelta
 
 import httpx
 import structlog
+from sqlalchemy import select
 
 from app.config import settings
 from app.database import async_session_factory
 from app.models.user import User, UserSettings
-from sqlalchemy import select
 
 logger = structlog.get_logger()
 
@@ -29,7 +28,7 @@ def build_authorize_url(redirect_uri: str, state: str, scope: str = "repo,read:u
     )
 
 
-async def exchange_code_for_token(code: str, redirect_uri: str) -> Optional[dict]:
+async def exchange_code_for_token(code: str, redirect_uri: str) -> dict | None:
     """Exchange an OAuth authorization code for an access token."""
     async with httpx.AsyncClient() as client:
         resp = await client.post(
@@ -60,7 +59,7 @@ async def fetch_github_user(access_token: str) -> dict:
         return resp.json()
 
 
-async def upsert_user_from_oauth(token_response: dict) -> Optional[User]:
+async def upsert_user_from_oauth(token_response: dict) -> User | None:
     """Persist a User record (or update it) from a successful OAuth exchange."""
     access_token = token_response.get("access_token")
     refresh_token = token_response.get("refresh_token")
@@ -77,7 +76,7 @@ async def upsert_user_from_oauth(token_response: dict) -> Optional[User]:
 
     expires_at = None
     if expires_in:
-        expires_at = datetime.now(timezone.utc) + timedelta(seconds=int(expires_in))
+        expires_at = datetime.now(UTC) + timedelta(seconds=int(expires_in))
 
     async with async_session_factory() as session:
         result = await session.execute(select(User).where(User.github_id == github_id))
