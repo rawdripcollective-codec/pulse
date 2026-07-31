@@ -47,10 +47,17 @@ build/
 *.tsbuildinfo
 
 # ─── Environment & secrets ──────────────────────────────
+# Real .env files (created by the user)
 .env
 .env.local
 .env.*.local
 *.pem
+
+# Provider preset files that contain REAL keys (not the .example templates)
+envs/anthropic.env
+envs/openai.env
+envs/ollama-local.env
+envs/ollama-cloud.env
 
 # ─── IDEs ───────────────────────────────────────────────
 .idea/

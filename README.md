@@ -183,6 +183,68 @@ pulse/
 
 ---
 
+## Provider Setup
+
+Pulse supports any LLM via [LiteLLM](https://github.com/BerriAI/litellm). Pick a preset from `envs/`, copy it into your `.env`, and fill in the values.
+
+| Provider | API key needed? | Preset | Notes |
+|---|---|---|---|
+| **Anthropic Claude** | Yes | [`envs/anthropic.env.example`](envs/anthropic.env.example) | Recommended default. Use `voyage-code-2` for embeddings (Anthropic doesn't host embeddings). |
+| **OpenAI** | Yes | [`envs/openai.env.example`](envs/openai.env.example) | `gpt-4o` for LLM, `text-embedding-3-small` for embeddings. |
+| **Ollama (local)** | **No** | [`envs/ollama-local.env.example`](envs/ollama-local.env.example) | Runs on your machine. Pull a model first: `ollama pull llama3.1` and `ollama pull nomic-embed-text`. |
+| **Ollama Cloud** | Yes | [`envs/ollama-cloud.env.example`](envs/ollama-cloud.env.example) | Hosted Ollama. Get a key at https://ollama.com/settings/keys. |
+
+---
+
+## GitHub Setup
+
+Pulse uses two GitHub credentials. You'll create both:
+
+### 1. OAuth App (for the web dashboard login)
+
+1. Go to **https://github.com/settings/developers**
+2. **OAuth Apps** → **New OAuth App**
+3. Fill in:
+   - **Application name:** `Pulse` (or `Pulse Local Dev`)
+   - **Homepage URL:** `http://localhost:5173`
+   - **Authorization callback URL:** `http://localhost:5173/auth/callback`
+4. Register, then click **Generate a new client secret**
+5. Copy the **Client ID** and **Client Secret** into `.env`:
+   ```
+   GITHUB_CLIENT_ID=Ov23li...
+   GITHUB_CLIENT_SECRET=...
+   ```
+
+### 2. Fine-grained Personal Access Token (for posting triage comments)
+
+> **Don't paste your PAT in chat.** Generate it locally and put it directly in `.env`.
+
+1. Go to **https://github.com/settings/tokens?type=beta**
+2. Click **Generate new token** → **Fine-grained**
+3. Configure:
+   - **Token name:** `pulse-local`
+   - **Resource owner:** your account (or an org)
+   - **Repository access:** select specific repos, or "All repositories"
+   - **Permissions:**
+     - `Contents`: Read
+     - `Issues`: Read and Write
+     - `Metadata`: Read (auto-selected)
+     - `Pull requests`: Read and Write
+4. Generate, then copy the token (you'll only see it once) into `.env`:
+   ```
+   GITHUB_TOKEN=ghp_...
+   ```
+
+### Webhook secret
+
+Any random string for HMAC signature verification:
+```bash
+openssl rand -hex 32
+```
+Put the output in `GITHUB_WEBHOOK_SECRET`.
+
+---
+
 ## Quickstart (Docker Compose)
 
 ### Prerequisites
