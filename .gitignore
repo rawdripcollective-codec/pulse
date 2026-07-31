@@ -1,0 +1,87 @@
+# ─── Python ──────────────────────────────────────────────
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+
+# Virtual environments
+.venv/
+venv/
+env/
+ENV/
+
+# Pytest / coverage
+.pytest_cache/
+.coverage
+htmlcov/
+.tox/
+.nox/
+coverage.xml
+
+# mypy / ruff
+.mypy_cache/
+.ruff_cache/
+
+# ─── Node / Frontend ────────────────────────────────────
+node_modules/
+.pnpm-store/
+dist/
+build/
+.vite/
+*.tsbuildinfo
+
+# ─── Environment & secrets ──────────────────────────────
+.env
+.env.local
+.env.*.local
+*.pem
+
+# ─── IDEs ───────────────────────────────────────────────
+.idea/
+.vscode/
+*.swp
+*.swo
+.DS_Store
+Thumbs.db
+
+# ─── Data & caches ──────────────────────────────────────
+.pulse/
+*.lance/
+*.lancedb/
+pgdata/
+*.sqlite
+*.db
+
+# ─── Logs ───────────────────────────────────────────────
+*.log
+logs/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# ─── Docker ─────────────────────────────────────────────
+docker-compose.override.yml
+
+# ─── OS ─────────────────────────────────────────────────
+.DS_Store
+.AppleDouble
+.LSOverride
+Icon?
+ehthumbs.db
+Desktop.ini
