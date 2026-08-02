@@ -402,6 +402,52 @@ cd backend && ruff check . && mypy app/
 cd frontend && npm run lint && npm run build
 ```
 
+### Testing
+
+```bash
+# Backend — fast SQLite suite (default)
+cd backend && pytest
+
+# Backend — Postgres-specific (auto-boots embedded Postgres)
+cd backend && pytest tests/integration/test_postgres.py
+# or: make test-pg
+
+# Frontend — Vitest + React Testing Library
+cd frontend && npm test                # one-shot
+cd frontend && npm run test:watch      # watch mode
+cd frontend && npm run test:coverage   # with coverage report
+```
+
+The frontend suite covers hooks, components (Header, RepoSelector,
+PRQueue, TriageReport, ApprovalPanel), pages (Dashboard, PRDetail),
+and the API client. The WebSocket layer is tested via a fake WS
+implementation. Visualizations (BlastRadiusGraph) are not covered —
+they're React Flow + D3 and too visual for unit tests.
+
+### Releasing
+
+Pulse uses a tag-driven CD workflow. To cut a release:
+
+```bash
+git tag v0.1.0
+git push origin v0.1.0
+```
+
+This triggers `.github/workflows/release.yml`, which:
+- Builds two multi-arch (linux/amd64, linux/arm64) Docker images
+  (backend + frontend)
+- Pushes them to `ghcr.io/rawdripcollective-codec/pulse-backend`
+  and `ghcr.io/rawdripcollective-codec/pulse-frontend`
+- Tags each image with `vX.Y.Z`, `vX.Y`, `vX`, and `latest`
+- Generates SBOMs and SLSA provenance
+
+Pull a release:
+
+```bash
+docker pull ghcr.io/rawdripcollective-codec/pulse-backend:v0.1.0
+docker pull ghcr.io/rawdripcollective-codec/pulse-frontend:v0.1.0
+```
+
 ---
 
 ## What's Out of Scope (Phase 2+)
