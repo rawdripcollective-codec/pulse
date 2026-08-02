@@ -1,0 +1,46 @@
+/* Tailwind 4 @theme block — registers Pulse's brand tokens as utility classes.
+
+Every `--color-pulse-*` here becomes a `bg-pulse-*`, `text-pulse-*`,
+`border-pulse-*` etc. utility. The values mirror `src/theme/brand.ts`
+(KEEP IN SYNC — the brand test will catch drift).
+
+Reference: https://tailwindcss.com/docs/theme
+*/
+
+@theme {
+  /* ─── Brand colors ─────────────────────────────── */
+  --color-pulse-cyan: #06b6d4;
+  --color-pulse-cyan-bright: #22d3ee;
+  --color-pulse-cyan-deep: #0891b2;
+
+  --color-pulse-slate: #1e293b;
+  --color-pulse-slate-deep: #0f172a;
+  --color-pulse-slate-darker: #020617;
+  --color-pulse-slate-border: #334155;
+
+  --color-pulse-orange: #f97316;
+  --color-pulse-gold: #f59e0b;
+
+  --color-pulse-fg: #f8fafc;
+  --color-pulse-fg-muted: #94a3b8;
+  --color-pulse-fg-dim: #64748b;
+
+  /* ─── Semantic tokens (use these in components) ─── */
+  --color-pulse-bg: var(--color-pulse-slate-darker);
+  --color-pulse-surface: var(--color-pulse-slate-deep);
+  --color-pulse-surface-raised: var(--color-pulse-slate);
+  --color-pulse-border: var(--color-pulse-slate-border);
+
+  --color-pulse-accent: var(--color-pulse-cyan);
+  --color-pulse-accent-bright: var(--color-pulse-cyan-bright);
+  --color-pulse-accent-deep: var(--color-pulse-cyan-deep);
+
+  --color-pulse-alert: var(--color-pulse-orange);
+  --color-pulse-success: var(--color-pulse-gold);
+
+  /* ─── Typography ────────────────────────────────── */
+  --font-pulse-sans:
+    Inter, ui-sans-serif, system-ui, -apple-system, sans-serif;
+  --font-pulse-mono:
+    "JetBrains Mono", ui-monospace, SFMono-Regular, monospace;
+}

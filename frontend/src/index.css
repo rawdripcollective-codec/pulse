@@ -1,27 +1,21 @@
-@import "tailwindcss";
+/* Pulse frontend base styles.
+ *
+ * The Tailwind 4 @theme block is defined in `src/styles/theme.css`
+ * and registered as utility classes (e.g. `bg-pulse-cyan`).
+ * See `src/theme/brand.ts` for the JS-accessible values.
+ */
 
-@theme {
-  --color-bg: #0f172a;
-  --color-surface: #1e293b;
-  --color-border: #334155;
-  --color-fg: #e2e8f0;
-  --color-muted: #94a3b8;
-  --color-accent: #22d3ee;
-}
+@import "tailwindcss";
+@import "./styles/theme.css";
 
 html,
 body,
 #root {
   height: 100%;
   margin: 0;
-  background-color: #020617;
-  color: #e2e8f0;
-  font-family:
-    Inter,
-    ui-sans-serif,
-    system-ui,
-    -apple-system,
-    sans-serif;
+  background-color: var(--color-pulse-bg);
+  color: var(--color-pulse-fg);
+  font-family: var(--font-pulse-sans);
 }
 
 /* Scrollbar styling for the dark theme */
@@ -31,14 +25,14 @@ body,
 }
 
 *::-webkit-scrollbar-track {
-  background: #0f172a;
+  background: var(--color-pulse-slate-deep);
 }
 
 *::-webkit-scrollbar-thumb {
-  background: #334155;
+  background: var(--color-pulse-border);
   border-radius: 4px;
 }
 
 *::-webkit-scrollbar-thumb:hover {
-  background: #475569;
+  background: var(--color-pulse-fg-dim);
 }

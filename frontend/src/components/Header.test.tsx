@@ -20,7 +20,7 @@ describe("Header", () => {
     expect(
       screen.getByRole("heading", { name: /pulse/i })
     ).toBeInTheDocument();
-    expect(screen.getByText(/agentic pr triage/i)).toBeInTheDocument();
+    expect(screen.getByText(/heartbeat for your repo/i)).toBeInTheDocument();
   });
 
   it("renders a link to the dashboard home", () => {
