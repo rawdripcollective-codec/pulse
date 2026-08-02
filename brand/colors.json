@@ -1,0 +1,53 @@
+{
+  "name": "Pulse Brand",
+  "version": "0.1.0",
+  "tagline": "Heartbeat for your repo",
+  "description": "Agentic PR Triage & Review for Maintainers",
+  "colors": {
+    "primary": {
+      "name": "Cyan",
+      "hex": "#06B6D4",
+      "rgb": [6, 182, 212],
+      "usage": "Primary brand color, accent, primary action, links"
+    },
+    "base": {
+      "name": "Slate",
+      "hex": "#1E293B",
+      "rgb": [30, 41, 59],
+      "usage": "Dark mode backgrounds, surfaces"
+    },
+    "baseDeep": {
+      "name": "Slate Deep",
+      "hex": "#0F172A",
+      "rgb": [15, 23, 42],
+      "usage": "Page background, deepest dark"
+    },
+    "alert": {
+      "name": "Orange",
+      "hex": "#F97316",
+      "rgb": [249, 115, 22],
+      "usage": "High-risk alerts, critical events, attention"
+    },
+    "accent": {
+      "name": "Gold",
+      "hex": "#F59E0B",
+      "rgb": [245, 158, 11],
+      "usage": "Approved states, success highlights, premium feel"
+    }
+  },
+  "supporting": {
+    "text": {
+      "primary": "#F8FAFC",
+      "secondary": "#94A3B8",
+      "muted": "#64748B"
+    }
+  },
+  "typography": {
+    "wordmark": "Geist / Inter / system-ui sans-serif",
+    "tagline": "JetBrains Mono / ui-monospace, tracked uppercase"
+  },
+  "voice": {
+    "tone": "Calm, technical, opinionated. The agent that watches so you don't have to.",
+    "tagline": "Heartbeat for your repo"
+  }
+}
