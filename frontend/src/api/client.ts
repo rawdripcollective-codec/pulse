@@ -1,5 +1,13 @@
 /* API client for Pulse backend. */
 
+import type {
+  BlastRadiusResponse,
+  PRSummary,
+  PRDetail,
+  RepoSummary,
+  SemanticSearchResponse,
+} from "../types";
+
 const API_BASE =
   import.meta.env.VITE_API_BASE || "http://localhost:8000/api";
 
@@ -18,7 +26,7 @@ async function fetchJSON<T>(path: string, options?: RequestInit): Promise<T> {
 export const api = {
   // Repos
   listRepos: () =>
-    fetchJSON<import("../types").RepoSummary[]>("/repos"),
+    fetchJSON<RepoSummary[]>("/repos"),
   reindexRepo: (fullName: string) =>
     fetchJSON<{ status: string; repo: string }>(
       `/repos/${encodeURIComponent(fullName)}/reindex`,
@@ -30,10 +38,10 @@ export const api = {
     const params = new URLSearchParams();
     if (repo) params.set("repo_full_name", repo);
     if (status) params.set("triage_status", status);
-    return fetchJSON<import("../types").PRSummary[]>(`/prs?${params}`);
+    return fetchJSON<PRSummary[]>(`/prs?${params}`);
   },
   getPR: (prId: string) =>
-    fetchJSON<import("../types").PRDetail>(`/prs/${prId}`),
+    fetchJSON<PRDetail>(`/prs/${prId}`),
 
   // Triage approval
   approveReport: (reportId: string, notes: string = "") =>
@@ -59,13 +67,13 @@ export const api = {
     }>("/dashboard/stats"),
   semanticSearch: (repo: string, q: string, topK: number = 10) => {
     const params = new URLSearchParams({ repo, q, top_k: String(topK) });
-    return fetchJSON<{ query: string; results: any[] }>(
+    return fetchJSON<SemanticSearchResponse>(
       `/dashboard/search?${params}`
     );
   },
   getBlastRadius: (repo: string, file: string) => {
     const params = new URLSearchParams({ repo, file });
-    return fetchJSON<{ file: string; affected: any[]; count: number }>(
+    return fetchJSON<BlastRadiusResponse>(
       `/dashboard/blast-radius?${params}`
     );
   },

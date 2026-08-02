@@ -82,3 +82,33 @@ export interface WSMessage {
   classification?: string;
   status?: string;
 }
+
+// ─── Dashboard response types ────────────────────────────────
+
+/** A single semantic search result — flexible shape, intentional. */
+export interface SearchResult {
+  file: string;
+  score: number;
+  snippet?: string;
+  [key: string]: unknown;
+}
+
+/** A single blast-radius entry (a function that calls a target). */
+export interface BlastRadiusEntry {
+  caller: string;
+  caller_file: string;
+  called: string;
+  called_file: string;
+  [key: string]: unknown;
+}
+
+export interface SemanticSearchResponse {
+  query: string;
+  results: SearchResult[];
+}
+
+export interface BlastRadiusResponse {
+  file: string;
+  affected: BlastRadiusEntry[];
+  count: number;
+}

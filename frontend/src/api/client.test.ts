@@ -1,7 +1,7 @@
 /* Tests for the API client — verify each method constructs the right URL
    and handles the response. Uses MSW to intercept HTTP calls. */
 
-import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { http, HttpResponse } from "msw";
 
 import { api } from "./client";
